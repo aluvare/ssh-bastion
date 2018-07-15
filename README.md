@@ -1,5 +1,5 @@
 # SSH-BASTION
-A logging SSH relay, with LDAP & public key auth.
+A logging SSH relay, with LDAP, public key auth and relay agent.
 
 ## Logging Functionality
 This application will MITM all SSH sessions directed at your internal servers and log the interactive sessions to disk.
@@ -24,7 +24,7 @@ After authenticating they will be presented with a list of servers that they can
 The user is never offered a local shell and if one is required, it will have to go via a real sshd running locally.
 
 A basic session should look like this:
-```
+```bash
 Welcome to SSH Bastion Relay Agent.
 This service is restricted to authorized users only.
 All activities on this system are logged.
@@ -46,6 +46,15 @@ user1@vdev2:~$ echo "test"
 test
 ```
 
+Now, you can use also the username to specify the remote host and the remote user:
+```bash
+ssh bastionserver -p 2222 -l ad-user#remote-host
+```
+or
+```bash
+ssh bastionserver -p 2222 -l ad-user#remote-user#remote-host
+```
+
 ## Build & Usage
 To build, you will need the Go runtime and to build you just need to run:
 
@@ -59,28 +68,9 @@ To test run from the command line, you can run:
 ./ssh-bastion -c "path-to-yaml-config-file"
 ```
 
-## Recommended Install Procedure
-```
-# useradd -d /opt/ssh-bastion -s /bin/false -c "SSH-BASTION SSH Relay" -r -U -m bastion
-# mkdir -p /opt/ssh-bastion/data/{logs,keys,pub,users}
-# cp <ssh-bastion binary location> /opt/ssh-bastion/ssh-bastion
-# cp <motd example path> /opt/ssh-bastion/data/motd
-# cp <config.yaml example path> /opt/ssh-bastion/config.yaml
-# ssh-keygen -f /opt/ssh-bastion/data/keys/ssh_host_rsa_key -N '' -t rsa
-# ssh-keygen -f /opt/ssh-bastion/data/keys/ssh_host_dsa_key -N '' -t dsa
-# ssh-keygen -f /opt/ssh-bastion/data/keys/ssh_host_ecdsa_key -N '' -t ecdsa
-# vi /opt/ssh-bastion/config.yaml (edit config as required)
-# chown -R bastion:bastion /opt/ssh-bastion
-# chmod 750 /opt/ssh-bastion
-# cp <systemd/ssh-bastion.service location> /etc/systemd/system/ssh-bastion.service
-# systemctl daemon-reload
-# systemctl enable ssh-bastion
-# systemctl start ssh-bastion
-```
-
 You will then need to customize the config to match your remote servers, copying their host public keys to the data/pub folder and linking them in the config.
 
 Your data/logs folder will probably end up taking up quite a lot of space and eating up lots of disk I/O, so with that in mind it might be worth mounting it on another disk.
 
 ## Credits
-Based on [sshmuxd](https://github.com/joushou/sshmuxd) with addition of logging and LDAP auth.
+Forked from [ssh-bastion](https://github.com/iamacarpet/ssh-bastion)
