@@ -22,6 +22,7 @@ type SSHConfigGlobal struct {
     LDAP_Domain             string                          `yaml:"ldap_domain"`
     PassPassword            bool                            `yaml:"pass_password"`
     ListenPath              string                          `yaml:"listen_path"`
+    StrictHostKeyCheck      bool                            `yaml:"strict_host_key_check"`
 }
 
 type SSHConfigServer struct {
@@ -37,6 +38,7 @@ type SSHConfigACL struct {
 type SSHConfigUser struct {
     ACL                     string                          `yaml:"acl"`
     AuthorizedKeysFile      string                          `yaml:"authorized_keys_file"`
+    IdrsaKeysFile           string                          `yaml:"idrsa_keys_file"`
 }
 
 func fetchConfig(filename string) (*SSHConfig, error) {

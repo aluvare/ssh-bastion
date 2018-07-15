@@ -119,7 +119,6 @@ func (s *SSHServer) SessionForward(startTime time.Time, sshConn *ssh.ServerConn,
 
 	WriteAuthLog("Connecting to remote for relay (%s) by %s from %s.", remote.ConnectPath, sshConn.User(), sshConn.RemoteAddr())
 	fmt.Fprintf(sesschan, "Connecting to %s\r\n", remote_name)
-
 	var clientConfig *ssh.ClientConfig
 	var lgnuser string
 	if (usr != "") {
@@ -127,10 +126,43 @@ func (s *SSHServer) SessionForward(startTime time.Time, sshConn *ssh.ServerConn,
 	} else {
 		lgnuser = sshConn.User()
 	}
-
-	clientConfig = &ssh.ClientConfig{
-		User:			   lgnuser,
-		Auth:			   []ssh.AuthMethod{
+	var lgnauth []ssh.AuthMethod
+	cnfuser := config.Users[sshConn.User()]
+	if len(cnfuser.IdrsaKeysFile) > 0 {
+		fmt.Fprintf(sesschan, "Do you want to do auth using the keyfile? [y/n]: ")
+		var keyd string
+		keyd, _ = tuser.ReadLine()
+		if (keyd == "y") {
+			key, err := ioutil.ReadFile(cnfuser.IdrsaKeysFile)
+			if err != nil {
+			log.Fatalf("unable to read private key: %v", err)
+			}
+			// Create the Signer for this private key.
+			signer, err := ssh.ParsePrivateKey(key)
+			if err != nil {
+				log.Fatalf("unable to parse private key: %v", err)
+			}
+			lgnauth = []ssh.AuthMethod{
+				// Use the PublicKeys method for remote authentication.
+				ssh.PublicKeys(signer),
+			}
+                } else {
+			lgnauth = []ssh.AuthMethod{
+				ssh.PasswordCallback(func() (secret string, err error) {
+					if secret, ok := sshConn.Permissions.Extensions["password"]; ok && config.Global.PassPassword {
+						return secret, nil
+					} else {
+						//log.Printf("Prompting for password for remote...")
+						t := terminal.NewTerminal(sesschan, "")
+						s, err := t.ReadPassword(fmt.Sprintf("%s@%s password: ", clientConfig.User, remote_name))
+						//log.Printf("Got password for remote auth, err: %s", err)
+						return s, err
+					}
+				}),
+			}
+		}
+        } else {
+		lgnauth = []ssh.AuthMethod{
 			ssh.PasswordCallback(func() (secret string, err error) {
 				if secret, ok := sshConn.Permissions.Extensions["password"]; ok && config.Global.PassPassword {
 					return secret, nil
@@ -142,7 +174,11 @@ func (s *SSHServer) SessionForward(startTime time.Time, sshConn *ssh.ServerConn,
 					return s, err
 				}
 			}),
-		},
+		}
+	}
+	clientConfig = &ssh.ClientConfig{
+		User:			   lgnuser,
+		Auth:			   lgnauth,
 		HostKeyCallback:	func(hostname string, remote_addr net.Addr, key ssh.PublicKey) error {
 			for _, keyFileName := range remote.HostPubKeyFiles {
 				hostKeyData, err := ioutil.ReadFile(keyFileName)
@@ -163,7 +199,11 @@ func (s *SSHServer) SessionForward(startTime time.Time, sshConn *ssh.ServerConn,
 				}
 			}
 			WriteAuthLog("Host key validation failed for remote %s by user %s from %s.", remote.ConnectPath, sshConn.User(), remote_addr)
-			return fmt.Errorf("HOST KEY VALIDATION FAILED - POSSIBLE MITM BETWEEN RELAY AND REMOTE")
+			if (config.Global.StrictHostKeyCheck) {
+				return fmt.Errorf("HOST KEY VALIDATION FAILED - POSSIBLE MITM BETWEEN RELAY AND REMOTE")
+			} else {
+				return nil
+			}
 		},
 	}
 

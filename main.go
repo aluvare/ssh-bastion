@@ -2,16 +2,14 @@ package main
 
 import (
     "os"
-    "fmt"
+    //"fmt"
     "log"
     "strings"
     "io/ioutil"
-    "log/syslog"
     "github.com/jessevdk/go-flags"
 )
 
 var config *SSHConfig
-var authLogger *syslog.Writer
 
 var opts struct {
     Config      string      `short:"c" long:"config" description:"Configuration YAML file location" required:"true"`
@@ -28,11 +26,6 @@ func main() {
     }
 
     config, err = fetchConfig(opts.Config)
-    if err != nil {
-        panic(err)
-    }
-
-    authLogger, err = syslog.New(syslog.LOG_AUTH | syslog.LOG_ALERT, "ssh-bastion")
     if err != nil {
         panic(err)
     }
@@ -60,5 +53,5 @@ func GetMOTD() (string) {
 }
 
 func WriteAuthLog(format string, v ...interface{}) {
-    authLogger.Write([]byte(fmt.Sprintf(format, v...)))
+    log.Printf(format)
 }

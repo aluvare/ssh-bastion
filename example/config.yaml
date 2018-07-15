@@ -19,6 +19,8 @@ global:
     ## so the service can be run as a non-root user.
     ## You can use iptables NATing to redirect users from port 22.
     listen_path:    "0.0.0.0:2222"
+    ## Force to check remote host keys
+    strict_host_key_check: true
 servers:
     ## An array of servers that clients can jump to.
     vdev1.ad.domain.local:
@@ -57,5 +59,8 @@ users:
         ## Even if this isn't specified, the user can still pass through public key
         ## authentication to the remote host using ssh-agent forwarding.
         authorized_keys_file:       "data/users/user1.authorized_keys"
+        ## File path to a private key for the user, in standard format.
+        ## To use with the remote hosts.
+        idrsa_keys_file:            "data/users/user1.idrsa"
     user2:
         acl:    "admin"
