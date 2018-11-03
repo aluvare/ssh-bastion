@@ -23,6 +23,7 @@ type SSHConfigGlobal struct {
     PassPassword            bool                            `yaml:"pass_password"`
     ListenPath              string                          `yaml:"listen_path"`
     StrictHostKeyCheck      bool                            `yaml:"strict_host_key_check"`
+    MongoURL			string			`yaml:"mongo_url"`
 }
 
 type SSHConfigServer struct {

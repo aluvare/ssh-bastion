@@ -22,7 +22,9 @@ func AuthUserPass(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, err
 	} else {
 		usr = conn.User()
 	}
-	if _, ok := config.Users[usr]; ! ok {
+	var usrcfg User
+	usrcfg = getUser(msession, usr)
+	if (usrcfg.Name != usr) {
 		return nil, fmt.Errorf("User Doesn't Exist in Config")
 	}
 	if string(password) == "" {

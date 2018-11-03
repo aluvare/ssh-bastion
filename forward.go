@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/terminal"
+	b64 "encoding/base64"
 )
 
 type rw struct {
@@ -95,15 +96,21 @@ func (s *SSHServer) SessionForward(startTime time.Time, sshConn *ssh.ServerConn,
 
 	fmt.Fprintf(sesschan, "%s\r\n", GetMOTD())
 
-	var remote SSHConfigServer
+	//var remote SSHConfigServer
+	var remote Server
 	var remote_name string
 
-	if user, ok := config.Users[usr]; ! ok {
+	var usrcfg User
+	var usracl Group
+	usrcfg = getUser(msession, usr)
+	usracl = getAcl(msession, usrcfg.Acl)
+
+	if (usrcfg.Name != usr) {
 		fmt.Fprintf(sesschan, "User %s has no permitted remote hosts.\r\n", usr)
 		sesschan.Close()
 		return
 	} else {
-		if acl, ok := config.ACLs[user.ACL]; ! ok {
+		if (usrcfg.Acl != usracl.Acl) {
 			fmt.Fprintf(sesschan, "Error processing server selection (Invalid ACL).\r\n")
 			log.Printf("Invalid ACL detected for user %s.", sshConn.User())
 			sesschan.Close()
@@ -113,8 +120,8 @@ func (s *SSHServer) SessionForward(startTime time.Time, sshConn *ssh.ServerConn,
 			if (strings.Contains(sshConn.User(), "#")) {
 				rawuser := strings.Split(sshConn.User(), "#")
 				svrok := false
-				for i := range acl.AllowedServers {
-					if (rawuser[len(rawuser)-1] == acl.AllowedServers[i]) {
+				for i := range usracl.Allow_list {
+					if (rawuser[len(rawuser)-1] == usracl.Allow_list[i]) {
 						svrok = true
 						svr = rawuser[len(rawuser)-1]
 					}
@@ -126,20 +133,22 @@ func (s *SSHServer) SessionForward(startTime time.Time, sshConn *ssh.ServerConn,
 					return
 				}
 			} else {
-				svr, err = InteractiveSelection(sesschan, "Please choose from the following servers:", acl.AllowedServers)
+				svr, err = InteractiveSelection(sesschan, "Please choose from the following servers:", usracl.Allow_list)
 				if err != nil {
 					fmt.Fprintf(sesschan, "Error processing server selection.\r\n")
 					sesschan.Close()
 					return
 				}
 			}
-			if server, ok := config.Servers[svr]; ! ok {
+			var usrsrv Server
+			usrsrv = getServer(msession, svr)
+			if (usrsrv.Name != svr) {
 				fmt.Fprintf(sesschan, "Incorrectly Configured Server Selected.\r\n")
 				sesschan.Close()
 				return
 			} else {
 				remote_name = svr
-				remote = server
+				remote = usrsrv
 			}
 		}
 	}
@@ -161,23 +170,23 @@ func (s *SSHServer) SessionForward(startTime time.Time, sshConn *ssh.ServerConn,
 	fmt.Fprintf(sesschan, "Connecting to %s\r\n", remote_name)
 	var clientConfig *ssh.ClientConfig
 	var lgnauth []ssh.AuthMethod
-	cnfuser := config.Users[usr]
 	fmt.Println("agentForwarding",agentForwarding)
 	if (agentForwarding == false) {
-		if len(cnfuser.IdrsaKeysFile) > 0 {
-			fmt.Fprintf(sesschan, "Do you want to do auth using the keyfile? [y/n]: ")
+		if len(usrcfg.Idrsa_key) > 0 {
+			fmt.Fprintf(sesschan, "Do you want to do auth using the keyfile? [Y/n]: ")
 			var keyd string
 			keyd, _ = trm.ReadLine()
-			if (keyd == "y") {
-				key, err := ioutil.ReadFile(cnfuser.IdrsaKeysFile)
+			if (keyd == "y" || keyd == "") {
+				key, err := b64.StdEncoding.DecodeString(usrcfg.Idrsa_key)
 				if err != nil {
-					log.Fatalf("unable to read private key: %v", err)
+					log.Println("unable to read private key: %v", err)
 				}
 				// Create the Signer for this private key.
 				signer, err := ssh.ParsePrivateKey(key)
 				if err != nil {
-					log.Fatalf("unable to parse private key: %v", err)
+					log.Println("unable to parse private key: %v", err)
 				}
+				log.Println(signer)
 				lgnauth = []ssh.AuthMethod{
 					// Use the PublicKeys method for remote authentication.
 					ssh.PublicKeys(signer),

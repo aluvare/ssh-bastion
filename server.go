@@ -9,6 +9,7 @@ import (
 	"strings"
 	"io/ioutil"
 	"golang.org/x/crypto/ssh"
+	b64 "encoding/base64"
 )
 
 type SSHServer struct {
@@ -36,13 +37,15 @@ func NewSSHServer() (*SSHServer, error) {
 			        } else {
 			                usr = conn.User()
 			        }
-				if user, ok := config.Users[usr]; ! ok {
+				var usrcfg User
+				usrcfg = getUser(msession, usr)
+				if (usrcfg.Name != usr) {
 					return nil, fmt.Errorf("User Not Found in Config for PK")
 				} else {
-					if len(user.AuthorizedKeysFile) > 0 {
-						authKeysData, err := ioutil.ReadFile(user.AuthorizedKeysFile)
+					if len(usrcfg.Authorized_keys) > 0 {
+						authKeysData, err := b64.StdEncoding.DecodeString(usrcfg.Authorized_keys)
 						if err != nil {
-							log.Printf("Unable to read authorized keys file (%s) for user (%s): %s.", user.AuthorizedKeysFile, conn.User(), err)
+							log.Printf("Unable to read authorized keys file for user (%s): %s.", conn.User(), err)
 							return nil, fmt.Errorf("Unable to read Authorized Keys file.")
 						}
 
@@ -52,7 +55,7 @@ func NewSSHServer() (*SSHServer, error) {
 								var err error
 								authKey, _, _, authKeysData, err = ssh.ParseAuthorizedKey(authKeysData)
 								if err != nil {
-									log.Printf("Error while processing authorized keys file (%s) for user (%s)", user.AuthorizedKeysFile, conn.User(), err)
+									log.Printf("Error while processing authorized keys filefor user (%s)", conn.User(), err)
 									return nil, fmt.Errorf("Error while processing authorized keys file.")
 								}
 
